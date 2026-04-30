@@ -236,7 +236,8 @@ def get_github_id(token: str) -> Optional[str]:
 
     session = get_session(token)
 
-    # Retry logic for timeout issues
+    # Retry logic for timeout issues. Use the same exponential backoff formula
+    # as every other GitHub call in this file: min(5 * 2**attempt, 30).
     for attempt in range(6):
         try:
             response = session.get(f'{BASE_GITHUB_API_URL}/user', timeout=GITHUB_HTTP_TIMEOUT_SECONDS)
@@ -254,12 +255,12 @@ def get_github_id(token: str) -> Optional[str]:
                 f'GitHub /user request failed with status {response.status_code} (attempt {attempt + 1}/6)'
             )
             if attempt < 5:
-                time.sleep(2)
+                time.sleep(min(5 * (2**attempt), 30))
 
         except Exception as e:
             bt.logging.warning(f'Could not fetch GitHub user (attempt {attempt + 1}/6): {e}')
             if attempt < 5:  # Don't sleep on last attempt
-                time.sleep(2)
+                time.sleep(min(5 * (2**attempt), 30))
 
     return None
 

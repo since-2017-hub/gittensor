@@ -377,6 +377,21 @@ class TestOtherGitHubAPIFunctions:
         assert result == '12345'
         assert mock_get.call_count == 3
 
+    @patch('gittensor.utils.github_api_tools.requests.get')
+    @patch('gittensor.utils.github_api_tools.time.sleep')
+    @patch('gittensor.utils.github_api_tools.bt.logging')
+    def test_get_github_id_uses_exponential_backoff(self, mock_logging, mock_sleep, mock_get):
+        """get_github_id must use the same min(5 * 2**attempt, 30) backoff as the rest of
+        github_api_tools.py — flat sleeps gave up after ~10s and flaked on brief 5xx blips."""
+        mock_get.return_value = Mock(status_code=502)
+
+        result = get_github_id('fake_token')
+
+        assert result is None
+        assert mock_get.call_count == 6
+        mock_sleep.assert_has_calls([call(5), call(10), call(20), call(30), call(30)])
+        assert mock_sleep.call_count == 5, 'Should sleep between attempts but not after the last one'
+
 
 # ============================================================================
 # File Changes Retry Logic Tests
